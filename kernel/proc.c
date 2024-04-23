@@ -709,7 +709,7 @@ get_pinfo(struct proc *cur_proc , struct pinfo *pinfo_ptr)
 
   pinfo_ptr->ppid = cur_proc->parent->pid;
   pinfo_ptr->page_usage = page_count;
-  pinfo_ptr->syscall_count = cur_proc->syscalls_count;
+  pinfo_ptr->syscall_count = cur_proc->syscalls_count-1;
 
   release(&cur_proc->lock);
 }
