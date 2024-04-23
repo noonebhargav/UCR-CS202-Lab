@@ -681,3 +681,22 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+int
+total_active_process_count(void)
+{
+
+}
+
+int
+total_system_call_count(void)
+{
+  return total_system_call_count-1;
+}
+
+void
+get_pinfo(struct proc *cur_proc , struct pinfo *pinfo_ptr)
+{
+
+}

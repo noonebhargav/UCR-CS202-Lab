@@ -80,3 +80,10 @@ kalloc(void)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
 }
+
+
+int           
+total_free_memory_pages(void)
+{
+
+}
