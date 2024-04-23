@@ -89,3 +89,43 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_sysinfo(void)
+{
+  uint param;
+  argint(0, &param);
+
+  if (param == 0)
+  {
+    return total_active_process_count();
+  }
+  else if(param == 1)
+  {
+    return total_system_call_count();
+  }
+  else if(param == 2)
+  {
+    return total_free_memory_pages();
+  }
+  else
+    return -1;
+
+}
+
+uint64
+sys_procinfo(void)
+{
+  uint64 kernel_pinfo_ptr;
+  argaddr(0,&kernel_pinfo_ptr);
+
+  struct proc *cur_proc = myproc();
+  struct pinfo pinfo_ptr;
+
+  get_pinfo(cur_proc , &pinfo_ptr);
+
+  if(copyout(cur_proc->pagetable,kernel_pinfo_ptr,(char *)&pinfo_ptr,sizeof(pinfo_ptr))==0)
+    return 0;
+  else
+    return -1;
+}
