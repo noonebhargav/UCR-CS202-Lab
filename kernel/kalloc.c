@@ -87,6 +87,7 @@ total_free_memory_pages(void)
 {
   int count = 0;
   struct run *page;
+
   acquire(&kmem.lock);
   page = kmem.freelist;
 
@@ -95,6 +96,7 @@ total_free_memory_pages(void)
     count++;
     page=page->next;
   }
+  release(&kmem.lock);
   
   return count;
 }

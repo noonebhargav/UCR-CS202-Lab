@@ -686,11 +686,11 @@ procdump(void)
 int
 total_active_process_count(void)
 {
-  struct proc *cur_proc;
+
   int count = 0;
   for(int i=0; i<NPROC; i++)
   {
-    if(cur_proc[i].state==SLEEPING || cur_proc[i].state==RUNNABLE || cur_proc[i].state==RUNNING || cur_proc[i].state==ZOMBIE)
+    if(proc[i].state==SLEEPING || proc[i].state==RUNNABLE || proc[i].state==RUNNING || proc[i].state==ZOMBIE)
     {
       count++;
     }
@@ -698,14 +698,18 @@ total_active_process_count(void)
   return count;
 }
 
-int
-total_system_call_count(void)
-{
-  return total_system_call_count-1;
-}
-
 void
 get_pinfo(struct proc *cur_proc , struct pinfo *pinfo_ptr)
 {
+  acquire(&cur_proc->lock);
 
+  int proc_size = cur_proc->sz;
+  int page_size = 4096;
+  int page_count = (proc_size + page_size - 1)/ page_size;
+
+  pinfo_ptr->ppid = cur_proc->parent->pid;
+  pinfo_ptr->page_usage = page_count;
+  pinfo_ptr->syscall_count = cur_proc->syscalls_count;
+
+  release(&cur_proc->lock);
 }

@@ -133,7 +133,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_procinfo] sys_procinfo
 };
 
-extern uint64 total_syscall_count = 0;
+uint64 total_syscall_count = 0;
 void
 syscall(void)
 {
@@ -146,9 +146,16 @@ syscall(void)
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
     total_syscall_count++;
+    p->syscalls_count++;
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
     p->trapframe->a0 = -1;
   }
+}
+
+int
+total_system_call_count(void)
+{
+  return total_syscall_count-1;
 }
