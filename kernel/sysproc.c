@@ -93,7 +93,7 @@ sys_uptime(void)
 uint64
 sys_sysinfo(void)
 {
-  uint param;
+  int param;
   argint(0, &param);
 
   if (param == 0)

@@ -23,7 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int sysinfo(void);
+int sysinfo(int);
 int procinfo(struct pinfo *cur);
 
 // ulib.c
