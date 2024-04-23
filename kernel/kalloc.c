@@ -85,5 +85,16 @@ kalloc(void)
 int           
 total_free_memory_pages(void)
 {
+  int count = 0;
+  struct run *page;
+  acquire(&kmem.lock);
+  page = kmem.freelist;
 
+  while(page)
+  {
+    count++;
+    page=page->next;
+  }
+  
+  return count;
 }

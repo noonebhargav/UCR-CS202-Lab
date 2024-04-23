@@ -686,7 +686,16 @@ procdump(void)
 int
 total_active_process_count(void)
 {
-
+  struct proc *cur_proc;
+  int count = 0;
+  for(int i=0; i<NPROC; i++)
+  {
+    if(cur_proc[i].state==SLEEPING || cur_proc[i].state==RUNNABLE || cur_proc[i].state==RUNNING || cur_proc[i].state==ZOMBIE)
+    {
+      count++;
+    }
+  }
+  return count;
 }
 
 int
