@@ -704,8 +704,7 @@ get_pinfo(struct proc *cur_proc , struct pinfo *pinfo_ptr)
   acquire(&cur_proc->lock);
 
   int proc_size = cur_proc->sz;
-  int page_size = 4096;
-  int page_count = (proc_size + page_size - 1)/ page_size;
+  int page_count = (proc_size + PGSIZE - 1)/ PGSIZE;
 
   pinfo_ptr->ppid = cur_proc->parent->pid;
   pinfo_ptr->page_usage = page_count;
