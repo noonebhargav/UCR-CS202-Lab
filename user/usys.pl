@@ -38,3 +38,5 @@ entry("sleep");
 entry("uptime");
 entry("sysinfo");
 entry("procinfo");
+entry("sched_tickets");
+entry("sched_statistics");

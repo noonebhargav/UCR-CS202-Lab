@@ -111,6 +111,8 @@ void            procdump(void);
 int             total_active_process_count(void);
 int             total_system_call_count(void);
 void            get_pinfo(struct proc *cur_proc , struct pinfo *pinfo_ptr);
+int             sched_tickets(int);
+int             sched_statistics(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

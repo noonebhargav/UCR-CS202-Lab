@@ -129,3 +129,19 @@ sys_procinfo(void)
   else
     return -1;
 }
+
+uint64 
+sys_sched_tickets(void)
+{
+  sched_statistics();
+  return 0;
+}
+
+uint64 
+sys_sched_statistics(void)
+{
+  int n;
+  argint(0, &n);
+  sched_tickets(n);
+  return 0;
+}
