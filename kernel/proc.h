@@ -105,8 +105,10 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int syscalls_count;          // Process system calls count
-  int tvalue;                  // Ticket Value
-  int num_t;                   // Number of Tickets
+
+  // Scheduling 
+  int ticks;                   // Tick number
+  int tickets;                 // Number of Tickets
   int pass;                    // Pass value
   int stride;                  // Stride value
 };

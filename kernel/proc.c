@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include <limits.h>
 
 struct cpu cpus[NCPU];
 
@@ -132,7 +133,10 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
+  p->tickets = 10000;
+  p->ticks = 0;
   p->state = USED;
+  p->syscalls_count = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -443,6 +447,36 @@ wait(uint64 addr)
   }
 }
 
+int 
+sched_statistics(void)
+{
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++)
+  {
+    if(p->pid>0)
+    {
+      printf("%d(%s): tickets:%d, ticks:%d\n", p->pid, p->name, p->tickets, p->ticks);
+    }
+  }
+  return 0;
+}
+
+int
+sched_tickets(int ticket)
+{
+  if(ticket <= 10000)
+  {
+    struct proc *p = myproc();
+    p->tickets = ticket;
+    #ifdef STRIDE
+    p->stride = 10000;
+    p->pass = p->stride / p->tickets;
+    #endif
+  }
+  return 0;
+}
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -458,25 +492,96 @@ scheduler(void)
   
   c->proc = 0;
   for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
-
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+    #if defined(LOTTERY)
+      // Avoid deadlock by ensuring that devices can interrupt.
+      intr_on();
+      int total_tickets = 0;
+      for(p = proc; p < &proc[NPROC]; p++)
+      {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          total_tickets+=p->tickets;
+        }
+        release(&p->lock);
       }
-      release(&p->lock);
-    }
+
+      int winner = ((int)rand()) % total_tickets + 1;
+      int lastticketsum=0;
+
+      for(p = proc; p < &proc[NPROC]; p++)
+      {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          lastticketsum += p->tickets;
+          if(winner > lastticketsum)
+          {
+            release(&p->lock);
+            continue;
+          }
+          p->state = RUNNING;
+          p->ticks += 1;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          c->proc = 0;
+        }
+        else if(p->state!=RUNNABLE) {
+          release(&p->lock);
+          continue;
+        }
+        release(&p->lock);
+        break;
+      }
+
+    #elif defined(STRIDE)
+      // Avoid deadlock by ensuring that devices can interrupt.
+      intr_on();
+      int minPass = INT_MAX;
+      struct proc *cur = proc;
+      for(p = proc; p < &proc[NPROC]; p++)
+      {
+        acquire(&p->lock);
+        if((p->state == RUNNABLE) && (p->pass < minPass)) {
+          cur = p;
+          minPass = p->pass;
+        }
+        release(&p->lock);
+      }
+
+      if(cur != 0 && cur->state == RUNNABLE)
+      {
+        acquire(&cur->lock);
+        c->proc = cur;
+        cur->pass += cur->stride;
+        cur->state = RUNNING;
+        cur->ticks += 1;
+
+        swtch(&c->context, &cur->context);
+        c->proc = 0;
+        release(&cur->lock);
+      }
+
+    #else
+      // Avoid deadlock by ensuring that devices can interrupt.
+      intr_on();
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          p->ticks += 1;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+        }
+        release(&p->lock);
+      }
+    #endif
+    
   }
 }
 
