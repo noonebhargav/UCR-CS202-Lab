@@ -492,9 +492,10 @@ scheduler(void)
   
   c->proc = 0;
   for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
     #if defined(LOTTERY)
-      // Avoid deadlock by ensuring that devices can interrupt.
-      intr_on();
+      
       int total_tickets = 0;
       for(p = proc; p < &proc[NPROC]; p++)
       {
@@ -505,7 +506,7 @@ scheduler(void)
         release(&p->lock);
       }
 
-      int winner = ((int)rand()) % total_tickets + 1;
+      int winner = ((int)rand()) % total_tickets + 1; //+1 to make it not zero
       int lastticketsum=0;
 
       for(p = proc; p < &proc[NPROC]; p++)
@@ -533,8 +534,6 @@ scheduler(void)
       }
 
     #elif defined(STRIDE)
-      // Avoid deadlock by ensuring that devices can interrupt.
-      intr_on();
       int minPass = INT_MAX;
       struct proc *cur = proc;
       for(p = proc; p < &proc[NPROC]; p++)
@@ -553,7 +552,7 @@ scheduler(void)
         c->proc = cur;
         cur->pass += cur->stride;
         cur->state = RUNNING;
-        cur->ticks += 1;
+        cur->ticks += 1; 
 
         swtch(&c->context, &cur->context);
         c->proc = 0;
@@ -561,8 +560,6 @@ scheduler(void)
       }
 
     #else
-      // Avoid deadlock by ensuring that devices can interrupt.
-      intr_on();
       for(p = proc; p < &proc[NPROC]; p++) {
         acquire(&p->lock);
         if(p->state == RUNNABLE) {
@@ -570,7 +567,7 @@ scheduler(void)
           // to release its lock and then reacquire it
           // before jumping back to us.
           p->state = RUNNING;
-          p->ticks += 1;
+          p->ticks += 1; // just for use of sched_statistics
           c->proc = p;
           swtch(&c->context, &p->context);
 
