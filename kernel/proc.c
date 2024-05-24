@@ -469,8 +469,8 @@ sched_tickets(int ticket)
     struct proc *p = myproc();
     p->tickets = ticket;
     #ifdef STRIDE
-    p->stride = 10000;
-    p->pass = p->stride / p->tickets;
+    p->stride = 10000/p->tickets;
+    p->pass = p->stride;
     #endif
   }
   return 0;
