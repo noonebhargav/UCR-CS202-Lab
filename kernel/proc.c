@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 #include <limits.h>
+#include "stddef.h"
 
 struct cpu cpus[NCPU];
 
@@ -15,6 +16,9 @@ struct proc *initproc;
 
 int nextpid = 1;
 struct spinlock pid_lock;
+
+int nexttid = 1;
+struct spinlock tid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
@@ -60,6 +64,7 @@ procinit(void)
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
+  initlock(&tid_lock, "nexttid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
@@ -112,6 +117,19 @@ allocpid()
   return pid;
 }
 
+int
+alloctid()
+{
+  int tid;
+  
+  acquire(&tid_lock);
+  tid = nexttid;
+  nexttid = nexttid + 1;
+  release(&tid_lock);
+
+  return tid;
+}
+
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -162,6 +180,45 @@ found:
   return p;
 }
 
+static struct proc*
+allocproc_thread(void)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == UNUSED) {
+      goto found;
+    } else {
+      release(&p->lock);
+    }
+  }
+  return 0;
+
+found:
+  p->pid = allocpid();
+  p->tickets = 10000;
+  p->ticks = 0;
+  p->state = USED;
+  p->syscalls_count = 0;
+  p->thread_id = alloctid();
+
+  // Allocate a trapframe page.
+  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&p->context, 0, sizeof(p->context));
+  p->context.ra = (uint64)forkret;
+  p->context.sp = p->kstack + PGSIZE;
+
+  return p;
+}
+
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
@@ -171,11 +228,14 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->pagetable)
+  if(p->thread_id!=0 && p->pagetable!=0)
+    proc_freepagetable_thread(p->pagetable, p->sz, p->thread_id);
+  else if(p->pagetable!=0)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
+  p->thread_id = 0;
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
@@ -226,6 +286,13 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
+}
+
+// Free a thread's page table
+void
+proc_freepagetable_thread(pagetable_t pagetable, uint64 sz, int thread_id)
+{
+  uvmunmap(pagetable, TRAPFRAME - (PGSIZE*thread_id), 1, 0);
 }
 
 // a user program that calls exec("/init")
@@ -338,6 +405,61 @@ fork(void)
   return pid;
 }
 
+// Create a new thread, copying the parent.
+// Sets up child kernel stack to return as if from fork() system call.
+int
+clone(void *stack)
+{
+  int i, tid;
+  struct proc *np;
+  struct proc *p = myproc();
+
+  if (stack == NULL) // sanity check
+    return -1;
+  
+  // Allocate thread.
+  if((np = allocproc_thread()) == 0){
+    return -1;
+  }
+
+  np->pagetable = p->pagetable;
+
+  if(mappages(np->pagetable, TRAPFRAME - (PGSIZE * np->thread_id), PGSIZE,(uint64)(np->trapframe), PTE_R | PTE_W) < 0){
+    uvmunmap(np->pagetable, TRAMPOLINE, 1, 0);
+    uvmfree(np->pagetable,0);
+    return 0; 
+  }
+  np->sz = p->sz;
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  np->trapframe->sp = (uint64) (stack + PGSIZE * sizeof(void));
+  np->trapframe->a0 = 0;
+
+  // increment reference counts on open file descriptors.
+  for(i = 0; i < NOFILE; i++)
+    if(p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  tid = np->thread_id;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+
+  return tid;
+}
+
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
 void
@@ -365,14 +487,17 @@ exit(int status)
     panic("init exiting");
 
   // Close all open files.
-  for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
+  if(p->thread_id == 0)
+  {
+    for(int fd = 0; fd < NOFILE; fd++){
+      if(p->ofile[fd]){
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
+      }
     }
   }
-
+  
   begin_op();
   iput(p->cwd);
   end_op();
