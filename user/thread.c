@@ -1,9 +1,9 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "kernel/spinlock.h"
+#include "kernel/riscv.h"
 #include "user/user.h"
 #include "user/thread.h"
-#include "riscv.h"
 
 int thread_create(void *(start_routine)(void*), void *arg)
 {
