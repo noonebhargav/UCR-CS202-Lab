@@ -105,12 +105,17 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int syscalls_count;          // Process system calls count
-
+  
   // Scheduling 
   int ticks;                   // Tick number
   int tickets;                 // Number of Tickets
   int pass;                    // Pass value
   int stride;                  // Stride value
+
+  // lab 3
+  struct trapframe *trapframe; // data page for trampoline.S
+  struct context context;      // swtch() here to run process
+  int thread_id;               // Thread ID
 };
 
 struct pinfo { 

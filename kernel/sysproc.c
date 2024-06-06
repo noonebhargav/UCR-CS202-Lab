@@ -145,3 +145,14 @@ sys_sched_tickets(void)
   sched_tickets(n);
   return 0;
 }
+
+uint64
+sys_clone(void)
+{
+  int size;
+  uint64 addr; 
+  argint(1, &size);
+  argaddr(0, &addr);
+
+  return clone((void*) addr);
+}

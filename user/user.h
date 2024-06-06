@@ -27,6 +27,7 @@ int sysinfo(int);
 int procinfo(struct pinfo *cur);
 int sched_tickets(int n);
 int sched_statistics(void);
+int clone(void*);
 
 // ulib.c
 int stat(const char*, struct stat*);

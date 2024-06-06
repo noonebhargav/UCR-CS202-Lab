@@ -40,3 +40,4 @@ entry("sysinfo");
 entry("procinfo");
 entry("sched_tickets");
 entry("sched_statistics");
+entry("clone");
