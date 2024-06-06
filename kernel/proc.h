@@ -113,8 +113,6 @@ struct proc {
   int stride;                  // Stride value
 
   // lab 3
-  struct trapframe *trapframe; // data page for trampoline.S
-  struct context context;      // swtch() here to run process
   int thread_id;               // Thread ID
 };
 
